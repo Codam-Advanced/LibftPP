@@ -41,7 +41,6 @@ class DataBuffer
         }
 
         // gives an unserialized object and serialize it
-        template<>
         DataBuffer& operator<<(const std::string& obj)
         {
             // since we already have a string we can just pass it to the buffer
@@ -52,7 +51,6 @@ class DataBuffer
         }
         
         // unserialize an object and assign it to the argument
-        template<>
         DataBuffer& operator>>(std::string& obj)
         {
             // we can simply read from the buffer

@@ -19,7 +19,7 @@ OBJ := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 INC := $(addprefix -I, $(shell find includes -type d))
 FLAGS	:= -Wall -Wextra -std=c++20 -MMD -MP -fsanitize=address
 
-CC	  := c++ # Compiler to use
+CC	  := /usr/bin/g++-12 # Compiler to use
 
 AR    := ar  # Archiver to create static libraries
 
