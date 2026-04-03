@@ -57,7 +57,6 @@ template<typename TEvent> class Observer
 				return;
 
 			std::vector<Callback>& vec = _observer.at(event);
-
 			// iterate through all methods to call the callback
 			for (auto& fn : vec)
 			{

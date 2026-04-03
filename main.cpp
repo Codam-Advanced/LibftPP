@@ -1,5 +1,6 @@
 #include <exception>
 #include <iostream>
+#include "DesignPatterns/memento.hpp"
 #include "libftpp.hpp"
 
 
@@ -44,7 +45,6 @@ void testDataBuffer()
 
     int newInt;
     std::string teststring;
-    int invalid;
 
     buffer >> teststring >> newInt;
     std::cout << "String: " << teststring << " Int: " << newInt << std::endl;
@@ -100,6 +100,24 @@ void testObserver()
     std::cout << std::endl;
 }
 
+void testMemento()
+{
+    SaveableObject saved;
+
+    saved.print();
+
+    Memento::Snapshot save_version_1 = saved.save();
+
+    saved.setAge(30);
+    saved.setName("JACK");
+
+    saved.print();
+
+    saved.load(save_version_1);
+
+    saved.print();
+}
+
 /**
  * @brief Main function
  * 
@@ -107,11 +125,12 @@ void testObserver()
  */
 int main() {
 
-    testPool();
-    testDataBuffer();
-    testSingleTon();
-    testObserver();
-  
+    // testPool();
+    // testDataBuffer();
+    // testSingleTon();
+    // testObserver();
+    
+    testMemento();
 
     
 

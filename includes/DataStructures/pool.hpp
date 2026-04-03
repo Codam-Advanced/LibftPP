@@ -49,7 +49,7 @@ template<typename TType> class Pool {
                 traits::destroy(_allocator, _usedPointer);
             }
 
-            for (int i = 0; i < _poolChunks.size(); i++)
+            for (size_t i = 0; i < _poolChunks.size(); i++)
             {
                 // deallocate each chunk.
                 traits::deallocate(_allocator, _poolChunks[i], _poolSizes[i]); 
@@ -67,7 +67,7 @@ template<typename TType> class Pool {
             TType* pool = traits::allocate(_allocator, numberOfObjectStored);
 
             // add each object to the free stack
-            for (int i = 0; i < numberOfObjectStored; i++)
+            for (size_t i = 0; i < numberOfObjectStored; i++)
                 _freeObjects.push(pool + i);
 
             // add the pool chuck to the rest of the pools
