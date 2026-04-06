@@ -1,7 +1,6 @@
 #include "DesignPatterns/memento.hpp"
 #include <cstddef>
 #include <iostream>
-#include <utility>
 
 Memento::Snapshot Memento::save()
 {
@@ -22,8 +21,9 @@ void Memento::load(const Memento::Snapshot& snapshot)
 }
 
 
-SaveableObject::SaveableObject(): name("CHEESE"), counter(10), age(21), progress("NO PROGRESS") {}
-
+SaveableObject::SaveableObject(): name("CHEESE"), counter(10), age(21), progress("NO PROGRESS") 
+{
+}
 
 
 void SaveableObject::_saveToSnapshot(Memento::Snapshot& snapshot) const

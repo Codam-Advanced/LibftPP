@@ -1,6 +1,7 @@
 #include <exception>
 #include <iostream>
 #include "DesignPatterns/memento.hpp"
+#include "DesignPatterns/state_machine.hpp"
 #include "libftpp.hpp"
 
 
@@ -118,6 +119,39 @@ void testMemento()
     saved.print();
 }
 
+void testStateMachine()
+{
+    enum states
+    {
+        SLEEPING,
+        PLAYING,
+        EATING,
+        SHOWERING,
+    };
+
+    StateMachine<states> machine(SLEEPING);
+
+    machine.addAction(SLEEPING, [](){
+        std::cout << "SLEEPING BEATY" << std::endl;
+    });
+
+    machine.update();
+
+    machine.addState(PLAYING);
+    machine.addState(EATING);
+
+    machine.addTransition(SLEEPING, PLAYING, [](){
+        std::cout << "We just woke up to start playing" << std::endl;
+    });
+
+    machine.addTransition(PLAYING,  EATING, [](){
+        std::cout << "With all this playing im getting hungry!" << std::endl;
+    });
+
+    machine.transitionTo(PLAYING);
+    machine.transitionTo(EATING);
+}   
+
 /**
  * @brief Main function
  * 
@@ -130,7 +164,8 @@ int main() {
     // testSingleTon();
     // testObserver();
     
-    testMemento();
+    testMemento();  
+    testStateMachine();
 
     
 
