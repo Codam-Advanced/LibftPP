@@ -1,19 +1,19 @@
 #pragma once
 # include <stdexcept>
+# include <iostream>
 # include <utility>
 
 template<typename TType> class Singleton
 {
 	public:
-
-		Singleton() : _object(nullptr) {}
 		~Singleton()
 		{
 			if (_object != nullptr)
-				delete _object;
+			delete _object;
 		}
 
 		// It doesn't make senses to copy a singleton
+		Singleton() = delete;
 		Singleton(const Singleton&) = delete;
 		Singleton& operator=(const Singleton&) = delete;
 
@@ -22,7 +22,7 @@ template<typename TType> class Singleton
 		 * 
 		 * @return TType*
 		 */
-		TType* instance()
+		static TType* instance()
 		{
 			return _object;
 		}
@@ -34,7 +34,7 @@ template<typename TType> class Singleton
 		 * @param p_args 
 		 */
 		template<typename ...TArgs>
-		void instantiate(TArgs&& ...p_args)
+		static void instantiate(TArgs&& ...p_args)
 		{
 			// if object is already instantiated throw an error
 			if (_object != nullptr)
@@ -44,7 +44,7 @@ template<typename TType> class Singleton
 		}
 
 	private:
-		TType* _object;
+		inline static TType* _object = nullptr;
 };
 
 class TestCar 

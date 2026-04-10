@@ -1,40 +1,36 @@
 #include <exception>
 #include <iostream>
+#include <ostream>
+#include <thread>
 #include "DesignPatterns/memento.hpp"
 #include "DesignPatterns/state_machine.hpp"
+#include "Threading/thread_safe_iostream.hpp"
 #include "libftpp.hpp"
 
 
 void testPool()
 {
-    Pool<std::string> pool;
+    // Create a Pool for TestObject
+    Pool<TestObject> myPool;
 
-    pool.resize(1);
+    // Resize the pool to pre-allocate 5 objects
+    // Should output the 5 "TestObject constructor"
+    myPool.resize(5);
 
-    try {
-        auto object2 = pool.acquire<std::string>("MIEP");
-        std::cout << object2->c_str() << std::endl;
+    // Acquire an object from the pool
+    Pool<TestObject>::Object obj1 = myPool.acquire(15);
+    obj1->sayHello();  // Should output: "Hello from TestObject"
 
-    } catch (std::exception& e) {
-        std::cerr << "Error with acquire [MIEP]" << e.what() << std::endl;
+    {
+        // Acquire another object in a different scope
+        Pool<TestObject>::Object obj2 = myPool.acquire();
+        obj2->sayHello();  // Should also output: "Hello from TestObject"
+        // obj2 is released back to the pool when it goes out of scope
     }
 
-    try {
-
-        auto object = pool.acquire<std::string>("hello World");
-        std::cout << object->c_str() << std::endl;
-    } catch (std::exception& e) {
-        std::cerr << "Error with acquire [Hello world]" << e.what() << std::endl;
-    }
-
-    try {
-
-        auto object = pool.acquire<std::string>("Invalid");
-        auto object2 = pool.acquire<std::string>("MIEP");
-        std::cout << object->c_str() << std::endl;
-    } catch (std::exception& e) {
-        std::cerr << "Error with acquire [invalid]: " << e.what() << std::endl;
-    }
+    // Acquire another object; this should give us the object that obj2 pointed to
+    Pool<TestObject>::Object obj3 = myPool.acquire();
+    obj3->sayHello();  // Should output: "Hello from TestObject"
 }
 
 void testDataBuffer()
@@ -53,15 +49,13 @@ void testDataBuffer()
 
 void testSingleTon()
 {
-    Singleton<TestCar> singleton;
-    singleton.instantiate("blue", "faster vroom");
-
-    TestCar* car = singleton.instance();
+    Singleton<TestCar>::instantiate("blue", "faster vroom");
+    TestCar* car = Singleton<TestCar>::instance();
     car->vroom();
 
     try
     {
-        singleton.instantiate("green", "slow vroom");
+        Singleton<TestCar>::instantiate("green", "slow vroom");
     } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
     }
@@ -69,36 +63,47 @@ void testSingleTon()
 
 void testObserver()
 {
-    Observer<ObserverEvents> observer;
-
-    observer.subscribe(ObserverEvents::RAINING, std::function([]() {
-        std::cout << "Oh no its raining I gotta fetch my rain coat" << std::endl;
-    }));
-
-    observer.subscribe(ObserverEvents::STORM, std::function([]() {
-        std::cout << "Oh no its STORM I gotta stay inside" << std::endl;
-    }));
-
-    observer.subscribe(ObserverEvents::STORM, std::function([]() {
-        std::cout << "ALERT ALERT LIATHS STORM INSIDE SHUT THE DOORS" << std::endl;
-    }));
-
-    observer.subscribe(ObserverEvents::SUNNY, std::function([]() {
-        std::cout << "YAY SUN!" << std::endl;
-    }));
+    enum class EventType {
+        EVENT_ONE,
+        EVENT_TWO,
+        EVENT_THREE
+    };
 
 
-    std::cout << "Its beginning to rain...." << std::endl;
-    observer.notify(ObserverEvents::RAINING);
-    std::cout << std::endl;
+    Observer<EventType> observer;
 
-    std::cout << "The rain is turning into a storm...." << std::endl;
-    observer.notify(ObserverEvents::STORM);
-    std::cout << std::endl;
+    // Subscribe to EVENT_ONE
+    observer.subscribe(EventType::EVENT_ONE, []() {
+        std::cout << "Event One triggered" << std::endl;
+    });
 
-    std::cout << "The storm is over! and the sun comes out..." << std::endl;
-    observer.notify(ObserverEvents::SUNNY);
-    std::cout << std::endl;
+    // Subscribe first lambda to EVENT_TWO
+    observer.subscribe(EventType::EVENT_TWO, []() {
+        std::cout << "Event Two triggered (First subscriber)" << std::endl;
+    });
+
+    // Subscribe second lambda to EVENT_TWO
+    observer.subscribe(EventType::EVENT_TWO, []() {
+        std::cout << "Event Two triggered (Second subscriber)" << std::endl;
+    });
+
+    // Triggering EVENT_ONE
+    std::cout << "Notify EVENT_ONE" << std::endl;
+    observer.notify(EventType::EVENT_ONE);  // Output: "Event One triggered"
+
+    // Triggering EVENT_TWO
+    std::cout << "Notify EVENT_TWO" << std::endl;
+    observer.notify(EventType::EVENT_TWO);  
+    // Output: 
+    // "Event Two triggered (First subscriber)"
+    // "Event Two triggered (Second subscriber)"
+    // The order may differ
+
+    // Triggering EVENT_THREE (No subscriber)
+    std::cout << "Notify EVENT_THREE" << std::endl;
+    observer.notify(EventType::EVENT_THREE);  // Output: None, as there are no subscribers
+
+
 }
 
 void testMemento()
@@ -121,37 +126,74 @@ void testMemento()
 
 void testStateMachine()
 {
-    enum states
-    {
-        SLEEPING,
-        PLAYING,
-        EATING,
-        SHOWERING,
+    enum class State {
+        Idle,
+        Running,
+        Paused,
+        Stopped
     };
 
-    StateMachine<states> machine(SLEEPING);
+    StateMachine<State> sm;
 
-    machine.addAction(SLEEPING, [](){
-        std::cout << "SLEEPING BEATY" << std::endl;
-    });
+    sm.addState(State::Idle);
+    sm.addState(State::Running);
+    sm.addState(State::Paused);
+    sm.addState(State::Stopped);
 
-    machine.update();
+    sm.addAction(State::Idle, [] { std::cout << "System is idle." << std::endl; });
+    sm.addAction(State::Running, [] { std::cout << "System is running." << std::endl; });
+    sm.addAction(State::Paused, [] { std::cout << "System is paused." << std::endl; });
+    // No addAction for State::Stopped, it will use the default empty lambda
 
-    machine.addState(PLAYING);
-    machine.addState(EATING);
+    sm.addTransition(State::Idle, State::Running, [] { std::cout << "Transitioning from Idle to Running." << std::endl; });
+    sm.addTransition(State::Running, State::Paused, [] { std::cout << "Transitioning from Running to Paused." << std::endl; });
+    sm.addTransition(State::Paused, State::Running, [] { std::cout << "Transitioning from Paused to Running." << std::endl; });
+    // No addTransition for State::Stopped
 
-    machine.addTransition(SLEEPING, PLAYING, [](){
-        std::cout << "We just woke up to start playing" << std::endl;
-    });
+    sm.update();  // Should print: "System is idle."
+    sm.transitionTo(State::Running);  // Should print: "Transitioning from Idle to Running."
+    sm.update();  // Should print: "System is running."
+    sm.transitionTo(State::Paused);  // Should print: "Transitioning from Running to Paused."
+    sm.update();  // Should print: "System is paused."
 
-    machine.addTransition(PLAYING,  EATING, [](){
-        std::cout << "With all this playing im getting hungry!" << std::endl;
-    });
+    // Transitioning to and from the new State::Stopped
+    try {
+        sm.transitionTo(State::Stopped);  // Should not print any transition message, and throw an exception
+    } catch (const std::invalid_argument& e) {
+        std::cout << "Exception caught: " << e.what() << std::endl;  // Handle state not found
+    }
+    
+    try {
+    	sm.transitionTo(State::Stopped);  // Should not print anything, default empty lambda is executed
+    } catch (const std::invalid_argument& e) {
+        std::cout << "Exception caught: " << e.what() << std::endl;  // Handle state not found
+    }
+    
+    try {
+        sm.transitionTo(State::Running);  // Should not print any transition message, and throw an exception
+    } catch (const std::invalid_argument& e) {
+        std::cout << "Exception caught: " << e.what() << std::endl;  // Handle state not found
+    }
+} 
 
-    machine.transitionTo(PLAYING);
-    machine.transitionTo(EATING);
-}   
 
+void printNumbers(const std::string& p_prefix) {
+    threadSafeCout.setPrefix(p_prefix);
+    for (int i = 1; i <= 5; ++i) {
+        threadSafeCout << "Number: " << i << std::endl;
+    }
+}
+
+void testThreadSafeIOStream() {
+    std::string prefix1 = "[Thread 1] ";
+    std::string prefix2 = "[Thread 2] ";
+
+    std::thread thread1(printNumbers, prefix1);
+    std::thread thread2(printNumbers, prefix2);
+
+    thread1.join();
+    thread2.join();
+}
 /**
  * @brief Main function
  * 
@@ -159,13 +201,14 @@ void testStateMachine()
  */
 int main() {
 
-    // testPool();
+    testPool();
     // testDataBuffer();
-    // testSingleTon();
-    // testObserver();
+    testSingleTon();
+    testObserver();
     
     testMemento();  
     testStateMachine();
+    testThreadSafeIOStream();
 
     
 

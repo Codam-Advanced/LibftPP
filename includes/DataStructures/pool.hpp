@@ -8,37 +8,40 @@
 #include <utility>
 #include <vector>
 #include <stack>
+#include <iostream>
 
 template<typename TType> class Pool {
 
-    template<typename UType> class Object  {
-
-        public:
-            Object(TType *ptr, Pool& pool) : _ptr(ptr), _pool(pool) {}
-
-            // once 
-            virtual ~Object()
-            {
-                if (_ptr) _pool.release(_ptr);
-            }
-
-            TType& operator*()
-            {
-                return *_ptr;
-            }
-
-            TType* operator->()
-            {
-                return _ptr;
-            }
-
-        
-        private:
-            TType* _ptr;
-            Pool& _pool;
-    };
-
+    
     public:
+        template<typename UType> class Object  {
+
+            public:
+                Object(TType *ptr, Pool& pool) : _ptr(ptr), _pool(pool) {}
+
+                // once 
+                virtual ~Object()
+                {
+                    if (_ptr) _pool.release(_ptr);
+                }
+
+                TType& operator*()
+                {
+                    return *_ptr;
+                }
+
+                TType* operator->()
+                {
+                    return _ptr;
+                }
+
+            
+            private:
+                TType* _ptr;
+                Pool& _pool;
+        };
+
+
         Pool() = default;
 
         ~Pool() 
@@ -68,7 +71,7 @@ template<typename TType> class Pool {
 
             // add each object to the free stack
             for (size_t i = 0; i < numberOfObjectStored; i++)
-                _freeObjects.push(pool + i);
+               _freeObjects.push(pool + i);
 
             // add the pool chuck to the rest of the pools
             _poolChunks.push_back(pool);
@@ -131,4 +134,14 @@ template<typename TType> class Pool {
 
         // used stack
         std::vector<TType*> _usedObjects; 
+};
+
+
+class TestObject {
+public:
+    TestObject() { std::cout << "TestObject default constructor" << std::endl; }
+    TestObject(int value) { std::cout << "TestObject constructor with value [" << value << "]" << std::endl;}
+    ~TestObject() { std::cout << "TestObject destructor" << std::endl; }
+
+    void sayHello() const { std::cout << "Hello from TestObject" << std::endl; }
 };

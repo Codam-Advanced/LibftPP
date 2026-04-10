@@ -4,6 +4,7 @@
 #include <functional>
 #include <map>
 #include <new>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -14,7 +15,7 @@ template<typename TState> class StateMachine
 
 	public:
 
-		StateMachine() = delete;
+		StateMachine() = default;
 		StateMachine(const TState& startState): _currentState(startState) { addState(startState); }
 		
 	 	/**
@@ -24,6 +25,8 @@ template<typename TState> class StateMachine
 	 	 */
 		void addState(const TState& state)
 		{
+			if (!_currentState.has_value())
+				_currentState = state;
 			auto it = _states.find(state);
 
 			if (it != _states.end())
@@ -76,12 +79,12 @@ template<typename TState> class StateMachine
 		 */
 		void transitionTo(const TState& state)
 		{
-			t_stateActions& action = getStateAction(_currentState);
+			t_stateActions& action = getStateAction(_currentState.value());
 			std::map<TState, std::vector<Callback>>& transition = action.transitionsActions;
 			auto it = transition.find(state);
 
 			if (it == transition.end())
-				throw std::runtime_error("Transition not registered for current state: [" + std::to_string(static_cast<int>(_currentState)) + "] to state: [" + std::to_string(static_cast<int>(state)) + "]");
+				throw std::invalid_argument("Transition not registered for current state: [" + std::to_string(static_cast<int>(_currentState.value())) + "] to state: [" + std::to_string(static_cast<int>(state)) + "]");
 
 			for (auto& callback : it->second)
 			{
@@ -98,7 +101,7 @@ template<typename TState> class StateMachine
 		 */
 		void update()
 		{
-			t_stateActions& action = getStateAction(_currentState);
+			t_stateActions& action = getStateAction(_currentState.value());
 
 			for (auto& callback : action.actions)
 			{
@@ -128,5 +131,5 @@ template<typename TState> class StateMachine
 
 		
 		std::map<TState, t_stateActions> _states;
-		TState _currentState;
+		std::optional<TState> _currentState;
 };
