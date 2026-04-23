@@ -40,3 +40,13 @@ std::string DataBuffer::readFromBuffer()
     return data;
 }
 
+const char* DataBuffer::data() const
+{
+    return _byte_buffer.data();
+}
+
+size_t DataBuffer::size() const
+{
+    return _byte_buffer.size();
+}
+

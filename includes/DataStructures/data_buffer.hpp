@@ -60,6 +60,12 @@ class DataBuffer
             return *this;
         }
 
+        // get the total serialized data of the buffer
+        const char* data() const;
+
+        // get the size of the serialized data
+        size_t size() const;
+
     private:
 
         std::string readFromBuffer();
