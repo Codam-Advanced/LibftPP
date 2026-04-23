@@ -13,8 +13,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Flags (like your Makefile)
-add_compile_options(-Wall -Wextra) # -fsanitize=address
-# add_link_options(-fsanitize=address)
+add_compile_options(-Wall -Wextra -mcx16 -g -fsanitize=thread) # -fsanitize=address
+add_link_options(-fsanitize=thread)
 
 
 
@@ -32,5 +32,5 @@ target_include_directories(ftpp PUBLIC ${PROJECT_SOURCE_DIR}/includes)
 add_executable(program main.cpp)
 
 # Link library to executable
-target_link_libraries(program PRIVATE ftpp)
+target_link_libraries(program PRIVATE ftpp atomic)
 

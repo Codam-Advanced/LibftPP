@@ -5,6 +5,7 @@
 #include "DesignPatterns/memento.hpp"
 #include "DesignPatterns/state_machine.hpp"
 #include "Threading/thread_safe_iostream.hpp"
+#include "Threading/thread_safe_queue.hpp"
 #include "libftpp.hpp"
 
 
@@ -194,6 +195,78 @@ void testThreadSafeIOStream() {
     thread1.join();
     thread2.join();
 }
+
+void testPush(ThreadSafeQueue<int>& p_queue, int p_value) {
+    p_queue.push_front(p_value);
+    threadSafeCout << "Pushed value: " << p_value << std::endl;
+}
+
+void testPop(ThreadSafeQueue<int>& p_queue) {
+    try {
+        int value = p_queue.pop_front();
+        threadSafeCout << "Popped value: " << value << std::endl;
+    } catch (const std::runtime_error& e) {
+        threadSafeCout << e.what() << std::endl;
+    }
+}
+
+void testThreadSafeQueue()
+{
+    ThreadSafeQueue<int> myQueue;
+
+    std::thread thread1(testPush, std::ref(myQueue), 10);
+    std::thread thread2(testPush, std::ref(myQueue), 20);
+    std::thread thread3(testPop, std::ref(myQueue));
+    std::thread thread4(testPop, std::ref(myQueue));
+    std::thread thread5(testPop, std::ref(myQueue));
+
+    thread1.join();
+    thread2.join();
+    thread3.join();
+    thread4.join();
+    thread5.join();
+}
+
+void myFunction1() {
+    for (int i = 0; i < 5; ++i) {
+        threadSafeCout << "Hello from Function1, iteration " << i << std::endl;
+    }
+}
+
+void myFunction2() {
+    for (int i = 0; i < 5; ++i) {
+        threadSafeCout << "Hello from Function2, iteration " << i << std::endl;
+    }
+}
+
+void testThreadWrapper()
+{
+    Thread thread1("Thread1", myFunction1);
+    Thread thread2("Thread2", myFunction2);
+
+    thread1.start();
+    thread2.start();
+
+    thread1.stop();
+    thread2.stop();
+
+}
+
+void testWorkerPool()
+{
+    WorkerPool pool(4);
+
+    auto job = []() {
+        threadSafeCout << "Executing job on thread: " << std::this_thread::get_id() << std::endl;
+    };
+
+    for (int i = 0; i < 1000; ++i) {
+        pool.addJob(job);
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for jobs to finish
+
+}
 /**
  * @brief Main function
  * 
@@ -202,13 +275,17 @@ void testThreadSafeIOStream() {
 int main() {
 
     testPool();
-    // testDataBuffer();
+    testDataBuffer();
     testSingleTon();
     testObserver();
     
     testMemento();  
     testStateMachine();
     testThreadSafeIOStream();
+    testThreadSafeQueue();
+    testThreadWrapper();
+    testWorkerPool();
+
 
     
 
