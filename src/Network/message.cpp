@@ -1,4 +1,5 @@
 #include "Network/message.hpp"
+#include "DataStructures/data_buffer.hpp"
 
 Message::Message(int type): _type(type) {}
 

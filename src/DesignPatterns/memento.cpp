@@ -29,8 +29,8 @@ SaveableObject::SaveableObject(): name("CHEESE"), counter(10), age(21), progress
 void SaveableObject::_saveToSnapshot(Memento::Snapshot& snapshot) const
 {
 	snapshot.saveData(
-		MAKE_SNAPSHOT_DATA_ENTRY(name),
 		MAKE_SNAPSHOT_DATA_ENTRY(counter),
+		MAKE_SNAPSHOT_DATA_ENTRY(name),
 		MAKE_SNAPSHOT_DATA_ENTRY(age),
 		MAKE_SNAPSHOT_DATA_ENTRY(progress)
 	);

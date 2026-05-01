@@ -9,6 +9,7 @@ class DataBuffer
 
     public:
         DataBuffer(): _read_position(0) {};
+        DataBuffer(const char* rawData, size_t size);
 
         // gives an unserialized object and serialize it
         template<typename TType>
@@ -28,7 +29,7 @@ class DataBuffer
         
         // unserialize an object and assign it to the argument
         template<typename TType>
-        DataBuffer& operator>>(TType& obj)
+        const DataBuffer& operator>>(TType& obj) const
         {
             // get the serialized data
             std::stringstream serialized_data(readFromBuffer());
@@ -51,10 +52,29 @@ class DataBuffer
         }
         
         // unserialize an object and assign it to the argument
-        DataBuffer& operator>>(std::string& obj)
+        const DataBuffer& operator>>(std::string& obj) const
         {
             // we can simply read from the buffer
             obj = readFromBuffer();
+
+            // allow chaining
+            return *this;
+        }
+
+                // gives an unserialized object and serialize it
+        DataBuffer& operator<<(const DataBuffer& obj)
+        {
+            _byte_buffer.insert(_byte_buffer.end(), obj.data(), obj.data() + obj.size());
+
+            // allow chaining
+            return *this;
+        }
+        
+        // unserialize an object and assign it to the argument
+        DataBuffer& operator>>(DataBuffer& obj)
+        {
+            // we can simply read from the buffer
+            obj << *this;
 
             // allow chaining
             return *this;
@@ -68,12 +88,12 @@ class DataBuffer
 
     private:
 
-        std::string readFromBuffer();
+        std::string readFromBuffer() const;
 
         void writeToBuffer(const std::string& data);
 
         // read position
-        size_t _read_position;
+        mutable size_t _read_position;
 
         // an std vector in byte format
         std::vector<char> _byte_buffer;

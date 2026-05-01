@@ -1,11 +1,14 @@
 #pragma once
 
 #include "Network/message.hpp"
+#include "Network/server.hpp"
 #include <functional>
+#include <map>
 #include <string>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#define BUFFER_SIZE 2068
 class Client
 {
 	public:
@@ -15,6 +18,7 @@ class Client
 		};
 
 		Client();
+		~Client();
 
 		void connect(const std::string& address, const size_t& port);
 		void disconnect();
@@ -23,6 +27,14 @@ class Client
 		void update();
 
 	private:
+		
+
+		Server::PacketHeader readHeaderFromServer();
+		Message readDataFromServer(uint32_t packetSize, Message::Type type);
+
+		void executeMessageAction(const Message& message);
+
 		int _clientSocket;
 		ConnectionState _state;
+		std::map<Message::Type, std::vector<std::function<void(const Message& msg)>>> _actions;
 };

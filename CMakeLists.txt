@@ -23,14 +23,20 @@ file(GLOB_RECURSE SRC
 ${PROJECT_SOURCE_DIR}/src/*.cpp
 )
 
-# Create static library (libftpp.a)
+# Library
 add_library(ftpp STATIC ${SRC})
-
 target_include_directories(ftpp PUBLIC ${PROJECT_SOURCE_DIR}/includes)
 
-# Main executable
-add_executable(program main.cpp)
+# ---- Executables ----
 
-# Link library to executable
+# Main
+add_executable(program main.cpp)
 target_link_libraries(program PRIVATE ftpp atomic)
 
+# Server binary
+add_executable(server main_server.cpp)
+target_link_libraries(server PRIVATE ftpp atomic)
+
+# Client binary
+add_executable(client main_client.cpp)
+target_link_libraries(client PRIVATE ftpp atomic)

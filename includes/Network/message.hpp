@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DataStructures/data_buffer.hpp"
+#include <sstream>
 class Message 
 {
 
@@ -13,12 +14,14 @@ class Message
 		Message& operator<<(const TType& data)
 		{
 			_body << data;
+			return *this;
 		}
 
 		template<typename TType>
 		const Message& operator>>(TType& data) const
 		{
 			_body >> data;
+			return *this;
 		}
 
 		Type type() const;

@@ -2,8 +2,10 @@
 #include <iostream>
 #include <ostream>
 #include <thread>
+#include "DataStructures/data_buffer.hpp"
 #include "DesignPatterns/memento.hpp"
 #include "DesignPatterns/state_machine.hpp"
+#include "Network/message.hpp"
 #include "Threading/thread_safe_iostream.hpp"
 #include "Threading/thread_safe_queue.hpp"
 #include "libftpp.hpp"
@@ -44,7 +46,8 @@ void testDataBuffer()
     int newInt;
     std::string teststring;
 
-    buffer >> teststring >> newInt;
+    buffer >> teststring;
+    buffer >> newInt;
     std::cout << "String: " << teststring << " Int: " << newInt << std::endl;
 }
 
@@ -290,12 +293,16 @@ void testPersistentWorker()
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
 }
+
+
 /**
  * @brief Main function
  * 
  * @return int 
  */
 int main() {
+
+    Client test;
 
     testPool();
     testDataBuffer();
@@ -306,10 +313,9 @@ int main() {
     testStateMachine();
     testThreadSafeIOStream();
     testThreadSafeQueue();
-    testThreadWrapper();
-    testWorkerPool();
-    testPersistentWorker();
-
+    // testThreadWrapper();
+    // testWorkerPool();
+    // testPersistentWorker();
 
     
 
