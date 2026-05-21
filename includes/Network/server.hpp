@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
+#include <memory>
 
 
 
@@ -51,8 +52,8 @@ class Server
 		void disconnectClient(SocketFD client);
 		void readFromClient(SocketFD client);
 		
-		PacketHeader readHeaderFromClient(SocketFD client);
-		Message readDataFromClient(SocketFD client, uint32_t packetSize, Message::Type type);
+		std::unique_ptr<Server::PacketHeader> readHeaderFromClient(SocketFD client);
+		std::unique_ptr<Message> readDataFromClient(SocketFD client, uint32_t packetSize, Message::Type type);
 
 		long long generateUniqueIdentifier();
 

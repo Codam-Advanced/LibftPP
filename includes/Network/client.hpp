@@ -2,6 +2,7 @@
 
 #include "Network/message.hpp"
 #include "Network/server.hpp"
+#include <memory>
 #include <functional>
 #include <map>
 #include <string>
@@ -29,8 +30,8 @@ class Client
 	private:
 		
 
-		Server::PacketHeader readHeaderFromServer();
-		Message readDataFromServer(uint32_t packetSize, Message::Type type);
+		std::unique_ptr<Message> 				readDataFromServer(uint32_t packetSize, Message::Type type);
+		std::unique_ptr<Server::PacketHeader> 	readHeaderFromServer();
 
 		void executeMessageAction(const Message& message);
 

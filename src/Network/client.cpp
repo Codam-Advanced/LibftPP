@@ -4,15 +4,18 @@
 #include "Network/server.hpp"
 #include "Threading/thread_safe_iostream.hpp"
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <netinet/in.h>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define ERROR -1
 
@@ -48,6 +51,10 @@ void Client::connect(const std::string& address, const size_t& port)
 	int connected = ::connect(_clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 	if (connected == ERROR)
 		throw std::runtime_error("Couldn't connect to server error: " + std::string(std::strerror(errno)));
+
+	// mark the socket as non blocking
+	int flags = fcntl(_clientSocket, F_GETFL, 0);
+	fcntl(_clientSocket, F_SETFL, flags | O_NONBLOCK);
 
 	// transition the state to connected
 	_state = CONNECTED;
@@ -88,19 +95,29 @@ void Client::update()
 	if (_state == DISCONNECTED)
 		return;
 
-	Server::PacketHeader header = readHeaderFromServer();
-	Message message = readDataFromServer(ntohl(header.dataSize), ntohl(header.Messagetype));
+	std::unique_ptr<Server::PacketHeader> header = readHeaderFromServer();
+	if (header == nullptr)
+		return;
 
-	executeMessageAction(message);
+	std::unique_ptr<Message> message = readDataFromServer(ntohl(header->dataSize), ntohl(header->Messagetype));
+	if (message == nullptr)
+		return;
+
+	executeMessageAction(*message);
 }
 
-Server::PacketHeader Client::readHeaderFromServer()
+std::unique_ptr<Server::PacketHeader> Client::readHeaderFromServer()
 {
-	Server::PacketHeader header;
+	std::unique_ptr<Server::PacketHeader> header = std::make_unique<Server::PacketHeader>();
 
-	int bytesRead = recv(_clientSocket, &header, sizeof(header), 0);
+	int bytesRead = recv(_clientSocket, header.get(), sizeof(*header), 0);
 	if (bytesRead == ERROR)
 	{
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+		{
+			// all data drained
+			return nullptr;
+		} 
 		disconnect();
 		throw std::runtime_error("Failed to read from client socket reason: " + std::string(std::strerror(errno)));
 	}
@@ -118,13 +135,18 @@ Server::PacketHeader Client::readHeaderFromServer()
 	return header;
 }
 
-Message Client::readDataFromServer(uint32_t packetSize, Message::Type type)
+std::unique_ptr<Message> Client::readDataFromServer(uint32_t packetSize, Message::Type type)
 {
 	char rawBuffer[BUFFER_SIZE];
 
 	int bytesRead = recv(_clientSocket, &rawBuffer, packetSize, 0);
 	if (bytesRead == ERROR)
 	{
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+		{
+			// all data drained
+			return nullptr;
+		} 
 		disconnect();
 		throw std::runtime_error("Failed to read from client socket reason: " + std::string(std::strerror(errno)));
 	}
@@ -141,9 +163,9 @@ Message Client::readDataFromServer(uint32_t packetSize, Message::Type type)
 	}
 
 	DataBuffer buffer(rawBuffer, packetSize);
-	Message msg(type);
+	std::unique_ptr<Message> msg = std::make_unique<Message>(type);
 
-	msg << buffer;
+	*msg.get() << buffer;
 	return msg;
 }
 
@@ -168,7 +190,7 @@ void Client::disconnect()
 	if (_state == DISCONNECTED)
 		return;
 
-	// disconnect simply close the file descriptor
+	// to disconnect simply close the file descriptor
 	close(_clientSocket);
 
 	// mark the client as disconnected

@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <memory>
 
 #define ERROR -1
 
@@ -144,17 +145,17 @@ void Server::update()
 			continue;
 		}
 
+		// does the client want to disconnect from the server
+		if (_incomingEvents[i].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+		{
+			disconnectClient(client);
+			continue;
+		}
+
 		// did the client send us data?
 		if (_incomingEvents[i].events & EPOLLIN)
 		{
 			readFromClient(client);
-			continue;
-		}
-
-		// does the client want to disconnect from the server
-		if (_incomingEvents[i].events & EPOLLERR & EPOLLHUP)
-		{
-			disconnectClient(client);
 			continue;
 		}
 	}
@@ -164,33 +165,43 @@ void Server::readFromClient(SocketFD client)
 {
 	threadSafeCout << "reading from client " << std::endl;
 	
-	PacketHeader header = readHeaderFromClient(client);
-	Message message = readDataFromClient(client, ntohl(header.dataSize), ntohl(header.Messagetype));
+	std::unique_ptr<Server::PacketHeader> header = readHeaderFromClient(client);
+	if (header == nullptr)
+		return;
 
-	executeMessageAction(client, message);
+	std::unique_ptr<Message> message = readDataFromClient(client, ntohl(header->dataSize), ntohl(header->Messagetype));
+	if (message == nullptr)
+		return;
+
+	executeMessageAction(client, *message);
 }
 
-Server::PacketHeader Server::readHeaderFromClient(SocketFD client)
+std::unique_ptr<Server::PacketHeader> Server::readHeaderFromClient(SocketFD client)
 {
-	Server::PacketHeader header;
+	std::unique_ptr<Server::PacketHeader> header = std::make_unique<Server::PacketHeader>();
 
-	int bytesRead = recv(client, &header, sizeof(header), 0);
+	int bytesRead = recv(client, header.get(), sizeof(*header), 0);
 	if (bytesRead == ERROR)
 	{
 		disconnectClient(client);
-		return header;
+		throw std::runtime_error("Failed to read from client socket reason: " + std::string(std::strerror(errno)));
 	}
-	else if (bytesRead < static_cast<int>(sizeof(header)))
+	// the client has exited gracefully
+	if (bytesRead == 0)
 	{
 		disconnectClient(client);
-		
+		return nullptr;
+	}
+	else if (bytesRead == 0)
+	{	
 		// return early since we don't have to do anything here anymore
-		throw std::runtime_error("Failed to read from client not enough to readd:  " + std::string(std::strerror(errno)));
+		disconnectClient(client);
+		throw std::runtime_error("Failed to read from client nothing to read:  " + std::string(std::strerror(errno)));
 	}
 	return header;
 }
 
-Message Server::readDataFromClient(SocketFD client, uint32_t packetSize, Message::Type type)
+std::unique_ptr<Message> Server::readDataFromClient(SocketFD client, uint32_t packetSize, Message::Type type)
 {
 	char rawBuffer[BUFFER_SIZE];
 
@@ -201,6 +212,13 @@ Message Server::readDataFromClient(SocketFD client, uint32_t packetSize, Message
 		throw std::runtime_error("Failed to read from client socket reason: " + std::string(std::strerror(errno)));
 	}
 
+	// the client has exited gracefully
+	if (bytesRead == 0)
+	{
+		disconnectClient(client);
+		return nullptr;
+	}
+
 	else if (bytesRead < static_cast<int>(packetSize))
 	{
 		disconnectClient(client);
@@ -209,9 +227,9 @@ Message Server::readDataFromClient(SocketFD client, uint32_t packetSize, Message
 	}
 
 	DataBuffer buffer(rawBuffer, packetSize);
-	Message msg(type);
+	std::unique_ptr<Message> msg = std::make_unique<Message>(type);
 
-	msg << buffer;
+	*msg.get() << buffer;
 	return msg;
 }
 
@@ -264,6 +282,9 @@ void Server::disconnectClient(SocketFD client)
 	std::erase_if(_clients, [&](const auto& pair) {
 		return pair.second == client;
 	});
+
+	// log
+	threadSafeCout << "Client Disconnected" << std::endl;
 }
 
 long long Server::generateUniqueIdentifier()

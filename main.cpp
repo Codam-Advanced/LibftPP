@@ -1,140 +1,235 @@
-#include <exception>
+#include <chrono>
+#include <cstdlib>
+#include <functional>
+#include <iomanip>
 #include <iostream>
-#include <ostream>
+#include <limits>
+#include <memory>
+#include <string>
 #include <thread>
-#include "DataStructures/data_buffer.hpp"
-#include "DesignPatterns/memento.hpp"
-#include "DesignPatterns/state_machine.hpp"
-#include "Network/message.hpp"
-#include "Threading/thread_safe_iostream.hpp"
-#include "Threading/thread_safe_queue.hpp"
+#include <vector>
+
+#include "Bonus/timeout.hpp"
+#include "DesignPatterns/singleton.hpp"
 #include "libftpp.hpp"
 
+// ============================================================
+// COLORS
+// ============================================================
 
-void testPool()
+namespace Color
 {
-    // Create a Pool for TestObject
-    Pool<TestObject> myPool;
+    constexpr const char* Reset   = "\033[0m";
 
-    // Resize the pool to pre-allocate 5 objects
-    // Should output the 5 "TestObject constructor"
-    myPool.resize(5);
+    constexpr const char* Red     = "\033[31m";
+    constexpr const char* Green   = "\033[32m";
+    constexpr const char* Yellow  = "\033[33m";
+    constexpr const char* Blue    = "\033[34m";
+    constexpr const char* Magenta = "\033[35m";
+    constexpr const char* Cyan    = "\033[36m";
+    constexpr const char* White   = "\033[37m";
 
-    // Acquire an object from the pool
-    Pool<TestObject>::Object obj1 = myPool.acquire(15);
-    obj1->sayHello();  // Should output: "Hello from TestObject"
+    constexpr const char* Bold    = "\033[1m";
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+
+void clearScreen()
+{
+    system("clear");
+}
+
+void waitForNext()
+{
+    std::cout << "\n";
+    std::cout << Color::Yellow
+              << "[ENTER]"
+              << Color::Reset
+              << " Next test...";
+    
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+}
+
+void printHeader(const std::string& title)
+{
+    clearScreen();
+
+    std::cout << Color::Cyan
+              << Color::Bold
+              << "====================================================\n"
+              << "  " << title << "\n"
+              << "====================================================\n"
+              << Color::Reset
+              << "\n";
+}
+
+void printSuccess(const std::string& text)
+{
+    std::cout << Color::Green << "[SUCCESS] " << Color::Reset
+              << text << "\n";
+}
+
+void printInfo(const std::string& text)
+{
+    std::cout << Color::Blue << "[INFO]    " << Color::Reset
+              << text << "\n";
+}
+
+void printWarning(const std::string& text)
+{
+    std::cout << Color::Yellow << "[WARNING] " << Color::Reset
+              << text << "\n";
+}
+
+void printError(const std::string& text)
+{
+    std::cout << Color::Red << "[ERROR]   " << Color::Reset
+              << text << "\n";
+}
+
+// ============================================================
+// TESTS
+// ============================================================
+
+void runPoolTest()
+{
+    printHeader("POOL TEST");
+
+    Pool<TestObject> pool;
+
+    printInfo("Preallocating 5 objects...");
+    pool.resize(5);
+
+    auto obj1 = pool.acquire(15);
+    obj1->sayHello();
 
     {
-        // Acquire another object in a different scope
-        Pool<TestObject>::Object obj2 = myPool.acquire();
-        obj2->sayHello();  // Should also output: "Hello from TestObject"
-        // obj2 is released back to the pool when it goes out of scope
+        auto obj2 = pool.acquire();
+        obj2->sayHello();
     }
 
-    // Acquire another object; this should give us the object that obj2 pointed to
-    Pool<TestObject>::Object obj3 = myPool.acquire();
-    obj3->sayHello();  // Should output: "Hello from TestObject"
+    auto obj3 = pool.acquire();
+    obj3->sayHello();
+
+    printSuccess("Pool test completed.");
 }
 
-void testDataBuffer()
+void runDataBufferTest()
 {
-    std::string string("Welcome World");
+    printHeader("DATA BUFFER TEST");
+
     DataBuffer buffer;
 
-    buffer << std::string("HELLo WORLD") << 10;
+    buffer << std::string("HELLO WORLD") << 42;
 
-    int newInt;
-    std::string teststring;
+    std::string text;
+    int value;
 
-    buffer >> teststring;
-    buffer >> newInt;
-    std::cout << "String: " << teststring << " Int: " << newInt << std::endl;
+    buffer >> text;
+    buffer >> value;
+
+    printInfo("Extracted values:");
+
+    std::cout << "String : " << text  << "\n";
+    std::cout << "Integer: " << value << "\n";
+
+    printSuccess("DataBuffer test completed.");
 }
 
-void testSingleTon()
+void runSingletonTest()
 {
-    Singleton<TestCar>::instantiate("blue", "faster vroom");
+    printHeader("SINGLETON TEST");
+
+    Singleton<TestCar>::instantiate("blue", "FAST VROOM");
+
     TestCar* car = Singleton<TestCar>::instance();
+
     car->vroom();
 
     try
     {
         Singleton<TestCar>::instantiate("green", "slow vroom");
-    } catch (std::exception& e) {
-        std::cerr << e.what() << std::endl;
     }
+    catch (const std::exception& e)
+    {
+        printError(e.what());
+    }
+
+    printSuccess("Singleton test completed.");
 }
 
-void testObserver()
+void runObserverTest()
 {
-    enum class EventType {
-        EVENT_ONE,
-        EVENT_TWO,
-        EVENT_THREE
-    };
+    printHeader("OBSERVER TEST");
 
+    enum class EventType
+    {
+        EventOne,
+        EventTwo
+    };
 
     Observer<EventType> observer;
 
-    // Subscribe to EVENT_ONE
-    observer.subscribe(EventType::EVENT_ONE, []() {
-        std::cout << "Event One triggered" << std::endl;
+    observer.subscribe(EventType::EventOne, []()
+    {
+        printInfo("Event One triggered.");
     });
 
-    // Subscribe first lambda to EVENT_TWO
-    observer.subscribe(EventType::EVENT_TWO, []() {
-        std::cout << "Event Two triggered (First subscriber)" << std::endl;
+    observer.subscribe(EventType::EventTwo, []()
+    {
+        printInfo("Event Two - Subscriber A");
     });
 
-    // Subscribe second lambda to EVENT_TWO
-    observer.subscribe(EventType::EVENT_TWO, []() {
-        std::cout << "Event Two triggered (Second subscriber)" << std::endl;
+    observer.subscribe(EventType::EventTwo, []()
+    {
+        printInfo("Event Two - Subscriber B");
     });
 
-    // Triggering EVENT_ONE
-    std::cout << "Notify EVENT_ONE" << std::endl;
-    observer.notify(EventType::EVENT_ONE);  // Output: "Event One triggered"
+    printWarning("Notify EventOne");
+    observer.notify(EventType::EventOne);
 
-    // Triggering EVENT_TWO
-    std::cout << "Notify EVENT_TWO" << std::endl;
-    observer.notify(EventType::EVENT_TWO);  
-    // Output: 
-    // "Event Two triggered (First subscriber)"
-    // "Event Two triggered (Second subscriber)"
-    // The order may differ
+    printWarning("Notify EventTwo");
+    observer.notify(EventType::EventTwo);
 
-    // Triggering EVENT_THREE (No subscriber)
-    std::cout << "Notify EVENT_THREE" << std::endl;
-    observer.notify(EventType::EVENT_THREE);  // Output: None, as there are no subscribers
-
-
+    printSuccess("Observer test completed.");
 }
 
-void testMemento()
+void runMementoTest()
 {
-    SaveableObject saved;
+    printHeader("MEMENTO TEST");
 
-    saved.print();
+    SaveableObject object;
 
-    Memento::Snapshot save_version_1 = saved.save();
+    printInfo("Initial state:");
+    object.print();
 
-    saved.setAge(30);
-    saved.setName("JACK");
+    auto snapshot = object.save();
 
-    saved.print();
+    object.setName("JACK");
+    object.setAge(30);
 
-    saved.load(save_version_1);
+    printInfo("Modified state:");
+    object.print();
 
-    saved.print();
+    object.load(snapshot);
+
+    printInfo("Restored state:");
+    object.print();
+
+    printSuccess("Memento test completed.");
 }
 
-void testStateMachine()
+void runStateMachineTest()
 {
-    enum class State {
+    printHeader("STATE MACHINE TEST");
+
+    enum class State
+    {
         Idle,
         Running,
-        Paused,
-        Stopped
+        Paused
     };
 
     StateMachine<State> sm;
@@ -142,183 +237,522 @@ void testStateMachine()
     sm.addState(State::Idle);
     sm.addState(State::Running);
     sm.addState(State::Paused);
-    sm.addState(State::Stopped);
 
-    sm.addAction(State::Idle, [] { std::cout << "System is idle." << std::endl; });
-    sm.addAction(State::Running, [] { std::cout << "System is running." << std::endl; });
-    sm.addAction(State::Paused, [] { std::cout << "System is paused." << std::endl; });
-    // No addAction for State::Stopped, it will use the default empty lambda
+    sm.addAction(State::Idle, []()
+    {
+        printInfo("System is idle.");
+    });
 
-    sm.addTransition(State::Idle, State::Running, [] { std::cout << "Transitioning from Idle to Running." << std::endl; });
-    sm.addTransition(State::Running, State::Paused, [] { std::cout << "Transitioning from Running to Paused." << std::endl; });
-    sm.addTransition(State::Paused, State::Running, [] { std::cout << "Transitioning from Paused to Running." << std::endl; });
-    // No addTransition for State::Stopped
+    sm.addAction(State::Running, []()
+    {
+        printInfo("System is running.");
+    });
 
-    sm.update();  // Should print: "System is idle."
-    sm.transitionTo(State::Running);  // Should print: "Transitioning from Idle to Running."
-    sm.update();  // Should print: "System is running."
-    sm.transitionTo(State::Paused);  // Should print: "Transitioning from Running to Paused."
-    sm.update();  // Should print: "System is paused."
+    sm.addAction(State::Paused, []()
+    {
+        printInfo("System is paused.");
+    });
 
-    // Transitioning to and from the new State::Stopped
-    try {
-        sm.transitionTo(State::Stopped);  // Should not print any transition message, and throw an exception
-    } catch (const std::invalid_argument& e) {
-        std::cout << "Exception caught: " << e.what() << std::endl;  // Handle state not found
+    sm.addTransition(State::Idle, State::Running, []()
+    {
+        printWarning("Idle -> Running");
+    });
+
+    sm.addTransition(State::Running, State::Paused, []()
+    {
+        printWarning("Running -> Paused");
+    });
+
+    sm.update();
+
+    sm.transitionTo(State::Running);
+    sm.update();
+
+    sm.transitionTo(State::Paused);
+    sm.update();
+
+    printSuccess("StateMachine test completed.");
+}
+
+void runVector2Test()
+{
+    printHeader("VECTOR2 TEST");
+
+    IVector2<int> a(3, 4);
+    IVector2<int> b(1, 2);
+
+    auto add = a + b;
+    auto sub = a - b;
+
+    std::cout << "A = (" << a.x << ", " << a.y << ")\n";
+    std::cout << "B = (" << b.x << ", " << b.y << ")\n\n";
+
+    std::cout << "A + B = (" << add.x << ", " << add.y << ")\n";
+    std::cout << "A - B = (" << sub.x << ", " << sub.y << ")\n";
+
+    std::cout << "Dot Product = " << a.dot(b) << "\n";
+    std::cout << "Length(A)   = " << a.length() << "\n";
+
+    printSuccess("Vector2 test completed.");
+}
+
+void runVector3Test()
+{
+    printHeader("VECTOR3 TEST");
+
+    IVector3<int> a(3, 4, 1);
+    IVector3<int> b(1, 2, 3);
+
+    auto cross = a.cross(b);
+
+    std::cout << "Cross Product:\n";
+
+    std::cout << "("
+              << cross.x << ", "
+              << cross.y << ", "
+              << cross.z << ")\n";
+
+    printSuccess("Vector3 test completed.");
+}
+
+void runRandomGeneratorTest()
+{
+    printHeader("RANDOM GENERATOR TEST");
+
+    Random2DCoordinateGenerator rng;
+
+    for (int y = 0; y < 4; ++y)
+    {
+        for (int x = 0; x < 4; ++x)
+        {
+            long long value = rng(x, y);
+
+            std::cout
+                << std::setw(16)
+                << value
+                << " ";
+        }
+
+        std::cout << "\n";
     }
-    
-    try {
-    	sm.transitionTo(State::Stopped);  // Should not print anything, default empty lambda is executed
-    } catch (const std::invalid_argument& e) {
-        std::cout << "Exception caught: " << e.what() << std::endl;  // Handle state not found
-    }
-    
-    try {
-        sm.transitionTo(State::Running);  // Should not print any transition message, and throw an exception
-    } catch (const std::invalid_argument& e) {
-        std::cout << "Exception caught: " << e.what() << std::endl;  // Handle state not found
-    }
-} 
 
+    printSuccess("Random generator test completed.");
+}
 
-void printNumbers(const std::string& p_prefix) {
-    threadSafeCout.setPrefix(p_prefix);
-    for (int i = 1; i <= 5; ++i) {
-        threadSafeCout << "Number: " << i << std::endl;
+void runPerlinNoiseTest()
+{
+    printHeader("PERLIN NOISE TEST");
+
+    PerlinNoise2D perlin;
+
+    constexpr int width  = 100;
+    constexpr int height = 40;
+
+    constexpr float scale = 0.03f;
+
+    const char gradient[] =
+    {
+        ' ',
+        '.',
+        ':',
+        '-',
+        '=',
+        '+',
+        '*',
+        '#',
+        '%',
+        '@'
+    };
+
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            float value = perlin.sample(x * scale, y * scale);
+
+            value = (value + 1.0f) * 0.5f;
+
+            value = std::clamp(value, 0.0f, 1.0f);
+
+            int index = static_cast<int>(value * 9.0f);
+
+            std::cout << gradient[index] << gradient[index];
+        }
+
+        std::cout << "\n";
+    }
+
+    printSuccess("Perlin noise test completed.");
+}
+
+// ============================================================
+// MULTITHREADING TESTS
+// ============================================================
+
+void threadedFunctionA()
+{
+    for (int i = 0; i < 5; ++i)
+    {
+        threadSafeCout
+            << "[Function A] Iteration "
+            << i
+            << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
-void testThreadSafeIOStream() {
+void threadedFunctionB()
+{
+    for (int i = 0; i < 5; ++i)
+    {
+        threadSafeCout
+            << "[Function B] Iteration "
+            << i
+            << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
+void printNumbers(const std::string& prefix)
+{
+    threadSafeCout.setPrefix(prefix);
+
+    for (int i = 1; i <= 5; ++i)
+    {
+        threadSafeCout
+            << "Number: "
+            << i
+            << std::endl;
+
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(100)
+        );
+    }
+}
+void testPush(ThreadSafeQueue<int>& queue, int value)
+{
+    queue.push_front(value);
+
+    threadSafeCout
+        << Color::Green
+        << "[PUSH] "
+        << Color::Reset
+        << "Inserted value: "
+        << value
+        << std::endl;
+}
+void testPop(ThreadSafeQueue<int>& queue)
+{
+    try
+    {
+        int value = queue.pop_front();
+
+        threadSafeCout
+            << Color::Cyan
+            << "[POP]  "
+            << Color::Reset
+            << "Retrieved value: "
+            << value
+            << std::endl;
+    }
+    catch (const std::runtime_error& e)
+    {
+        threadSafeCout
+            << Color::Red
+            << "[ERROR] "
+            << Color::Reset
+            << e.what()
+            << std::endl;
+    }
+}
+
+void runThreadWrapperTest()
+{
+    printHeader("THREAD WRAPPER TEST");
+
+    Thread threadA("Thread-A", threadedFunctionA);
+    Thread threadB("Thread-B", threadedFunctionB);
+
+    printInfo("Starting threads...");
+
+    threadA.start();
+    threadB.start();
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    printWarning("Stopping threads...");
+
+    threadA.stop();
+    threadB.stop();
+
+    printSuccess("ThreadWrapper test completed.");
+}
+
+void runWorkerPoolTest()
+{
+    printHeader("WORKER POOL TEST");
+
+    WorkerPool pool(4);
+
+    printInfo("Dispatching 100 jobs...");
+
+    for (int i = 0; i < 100; ++i)
+    {
+        pool.addJob([i]()
+        {
+            threadSafeCout
+                << "[Job "
+                << i
+                << "] Running on thread "
+                << std::this_thread::get_id()
+                << std::endl;
+
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(20)
+            );
+        });
+    }
+
+    printWarning("Waiting for workers...");
+
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    printSuccess("WorkerPool test completed.");
+}
+
+void runPersistentWorkerTest()
+{
+    printHeader("PERSISTENT WORKER TEST");
+
+    PersistentWorker worker;
+
+    printInfo("Adding tasks...");
+
+    worker.addTask("Heartbeat", []()
+    {
+        threadSafeCout
+            << "[Heartbeat] Alive..."
+            << std::endl;
+
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(500)
+        );
+    });
+
+    worker.addTask("Logger", []()
+    {
+        threadSafeCout
+            << "[Logger] Writing logs..."
+            << std::endl;
+
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(700)
+        );
+    });
+
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    printWarning("Removing Heartbeat task...");
+
+    worker.removeTask("Heartbeat");
+
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    printSuccess("PersistentWorker test completed.");
+}
+
+void runThreadSafeIOTest()
+{
+    printHeader("THREAD SAFE IOSTREAM TEST");
+
     std::string prefix1 = "[Thread 1] ";
     std::string prefix2 = "[Thread 2] ";
+
+    printInfo("Launching two threads with synchronized console output...");
 
     std::thread thread1(printNumbers, prefix1);
     std::thread thread2(printNumbers, prefix2);
 
     thread1.join();
     thread2.join();
-}
 
-void testPush(ThreadSafeQueue<int>& p_queue, int p_value) {
-    p_queue.push_front(p_value);
-    threadSafeCout << "Pushed value: " << p_value << std::endl;
+    printSuccess("ThreadSafeIO test completed.");
 }
-
-void testPop(ThreadSafeQueue<int>& p_queue) {
-    try {
-        int value = p_queue.pop_front();
-        threadSafeCout << "Popped value: " << value << std::endl;
-    } catch (const std::runtime_error& e) {
-        threadSafeCout << e.what() << std::endl;
-    }
-}
-
-void testThreadSafeQueue()
+void runThreadSafeQueueTest()
 {
-    ThreadSafeQueue<int> myQueue;
+    printHeader("THREAD SAFE QUEUE TEST");
 
-    std::thread thread1(testPush, std::ref(myQueue), 10);
-    std::thread thread2(testPush, std::ref(myQueue), 20);
-    std::thread thread3(testPop, std::ref(myQueue));
-    std::thread thread4(testPop, std::ref(myQueue));
-    std::thread thread5(testPop, std::ref(myQueue));
+    ThreadSafeQueue<int> queue;
+
+    printInfo("Launching concurrent push/pop operations...");
+
+    std::thread thread1(testPush, std::ref(queue), 10);
+    std::thread thread2(testPush, std::ref(queue), 20);
+
+    std::thread thread3(testPop, std::ref(queue));
+    std::thread thread4(testPop, std::ref(queue));
+    std::thread thread5(testPop, std::ref(queue));
 
     thread1.join();
     thread2.join();
     thread3.join();
     thread4.join();
     thread5.join();
+
+    printSuccess("ThreadSafeQueue test completed.");
 }
 
-void myFunction1() {
-    for (int i = 0; i < 5; ++i) {
-        threadSafeCout << "Hello from Function1, iteration " << i << std::endl;
+void runTimeoutTest()
+{
+    printHeader("TIMEOUT TEST");
+
+    Singleton<Timeout>::instantiate();
+
+    std::shared_ptr<Timeout::Timer> timer_5_seconds = Singleton<Timeout>::instance()->registerTimer(5, [](){
+        std::cout << "5 second timer has expired" << std::endl;
+    });
+
+    std::shared_ptr<Timeout::Timer> timer_2_seconds = Singleton<Timeout>::instance()->registerTimer(2, [&](){
+        std::cout << "2 second timer has expired" << std::endl;
+       
+    });
+
+    auto start = std::chrono::steady_clock::now();
+    bool done = false;
+
+    while (std::chrono::steady_clock::now() - start < std::chrono::seconds(6))
+    {
+        Singleton<Timeout>::instance()->check();
+
+        if (!done && std::chrono::steady_clock::now() - start > std::chrono::seconds(4))
+        {
+            std::cout << "removing the 5 second timer" << std::endl;
+            Singleton<Timeout>::instance()->removeTimer(timer_5_seconds);
+            done = true;
+        }
     }
 }
+void runObservableValueTest() {
+    printHeader("OBSERVABLE VALUE TEST");
 
-void myFunction2() {
-    for (int i = 0; i < 5; ++i) {
-        threadSafeCout << "Hello from Function2, iteration " << i << std::endl;
+    ObservableValue<int> value(10);
+
+    int observer1Calls = 0;
+    int observer2Calls = 0;
+
+    int observer1LastValue = 0;
+    int observer2LastValue = 0;
+
+    // observer 1
+    value.observe("observer_1", [&](const int& data)
+    {
+        observer1Calls++;
+        observer1LastValue = data;
+
+        std::cout << "[observer_1] received value: "
+                  << data << std::endl;
+    });
+
+    // observer 2
+    value.observe("observer_2", [&](const int& data)
+    {
+        observer2Calls++;
+        observer2LastValue = data;
+
+        std::cout << "[observer_2] received value: "
+                  << data << std::endl;
+    });
+
+    printInfo("storing value 42");
+    value.store(42);
+
+    // same value should not trigger observers
+    printInfo("storing value 42 again");
+    value.store(42);
+
+    // disconnect observer 1
+    printInfo("disconnecting observer_1");
+    value.disconnect("observer_1");
+
+    // only observer 2 should receive this
+    printInfo("storing value 99");
+    value.store(99);
+
+    printSuccess("observable value test passed");
+}
+
+// ============================================================
+// TEST REGISTRY
+// ============================================================
+
+struct Test
+{
+    std::string name;
+    std::function<void()> function;
+};
+
+int main()
+{
+    std::vector<Test> tests =
+    {  
+
+         // Bonus
+        {"Timeout",           runTimeoutTest},
+        {"ObservableValue",   runObservableValueTest},
+        // object storage
+        {"Pool",              runPoolTest},
+        {"DataBuffer",        runDataBufferTest},
+        
+        // design patterns
+        {"Singleton",         runSingletonTest},
+        {"Observer",          runObserverTest},
+        {"Memento",           runMementoTest},
+        {"StateMachine",      runStateMachineTest},
+       
+        // Mathematics
+        {"Vector2",           runVector2Test},
+        {"Vector3",           runVector3Test},
+        {"RandomGenerator",   runRandomGeneratorTest},
+        {"PerlinNoise",       runPerlinNoiseTest},
+
+        // Threading
+        {"ThreadSafeIO",      runThreadSafeIOTest},
+        {"ThreadSafeQueue",   runThreadSafeQueueTest},
+
+        {"ThreadWrapper",     runThreadWrapperTest},
+        {"WorkerPool",        runWorkerPoolTest},
+        {"PersistentWorker",  runPersistentWorkerTest},
+    };
+
+    for (size_t i = 0; i < tests.size(); ++i)
+    {
+        tests[i].function();
+
+        std::cout << "\n";
+
+        std::cout << Color::Magenta
+                  << "Test "
+                  << (i + 1)
+                  << "/"
+                  << tests.size()
+                  << ": "
+                  << tests[i].name
+                  << Color::Reset
+                  << "\n";
+
+        waitForNext();
     }
-}
 
-void testThreadWrapper()
-{
-    Thread thread1("Thread1", myFunction1);
-    Thread thread2("Thread2", myFunction2);
+    clearScreen();
 
-    thread1.start();
-    thread2.start();
-
-    thread1.stop();
-    thread2.stop();
-
-}
-
-void testWorkerPool()
-{
-    WorkerPool pool(4);
-
-    auto job = []() {
-        threadSafeCout << "Executing job on thread: " << std::this_thread::get_id() << std::endl;
-    };
-
-    for (int i = 0; i < 1000; ++i) {
-        pool.addJob(job);
-    }
-
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for jobs to finish
-
-}
-
-void testPersistentWorker()
-{
-    PersistentWorker worker;
-
-    auto task1 = []() {
-        threadSafeCout << "Executing Task 1" << std::endl;
-    };
-
-    auto task2 = []() {
-        threadSafeCout << "Executing Task 2" << std::endl;
-    };
-
-    worker.addTask("Task1", task1);
-    worker.addTask("Task2", task2);
-
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    worker.removeTask("Task1");
-
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-}
+    std::cout << Color::Green
+              << Color::Bold
+              << "ALL TESTS COMPLETED SUCCESSFULLY\n"
+              << Color::Reset;
 
 
-/**
- * @brief Main function
- * 
- * @return int 
- */
-int main() {
-
-    Client test;
-
-    testPool();
-    testDataBuffer();
-    testSingleTon();
-    testObserver();
-    
-    testMemento();  
-    testStateMachine();
-    testThreadSafeIOStream();
-    testThreadSafeQueue();
-    // testThreadWrapper();
-    // testWorkerPool();
-    // testPersistentWorker();
-
-    
-
-
+    if (std::chrono::steady_clock::now() - std::chrono::steady_clock::now() > std::chrono::milliseconds(2))
     return 0;
 }

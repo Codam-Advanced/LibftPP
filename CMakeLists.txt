@@ -13,8 +13,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Flags (like your Makefile)
-add_compile_options(-Wall -Wextra -mcx16 -g -fsanitize=thread) # -fsanitize=address
-add_link_options(-fsanitize=thread)
+add_compile_options(-Wall -Wextra -Werror -g) # -fsanitize=address
 
 
 
